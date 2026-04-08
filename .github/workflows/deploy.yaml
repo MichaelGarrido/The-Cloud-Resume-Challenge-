@@ -1,0 +1,93 @@
+name: Deploy Resume Site
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "Frontend/**"
+      - "Infra/**"
+      - ".github/workflows/deploy.yml"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build:
+    name: Build / Validate Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check required frontend files
+        run: |
+          test -f Frontend/index.html
+          test -f Frontend/error.html
+          echo "Frontend looks good"
+
+  deploy:
+    name: Deploy Infra and Site
+    runs-on: ubuntu-latest
+    needs: build
+    outputs:
+      site_url: ${{ steps.tf.outputs.site_url }}
+      distribution_id: ${{ steps.tf.outputs.distribution_id }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        working-directory: Infra
+        run: terraform init -input=false
+
+      - name: Terraform Format Check
+        working-directory: Infra
+        run: terraform fmt -check
+
+      - name: Terraform Validate
+        working-directory: Infra
+        run: terraform validate
+
+      - name: Terraform Apply
+        working-directory: Infra
+        run: terraform apply -auto-approve
+
+      - name: Read Terraform outputs
+        id: tf
+        working-directory: Infra
+        run: |
+          echo "site_url=$(terraform output -raw site_url)" >> "$GITHUB_OUTPUT"
+          echo "distribution_id=$(terraform output -raw cloudfront_distribution_id)" >> "$GITHUB_OUTPUT"
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ steps.tf.outputs.distribution_id }}" \
+            --paths "/*"
+
+  smoke-test:
+    name: Smoke Test
+    runs-on: ubuntu-latest
+    needs: deploy
+
+    steps:
+      - name: Check homepage headers
+        run: |
+          curl -I "${{ needs.deploy.outputs.site_url }}"
+
+      - name: Check homepage body
+        run: |
+          curl -s "${{ needs.deploy.outputs.site_url }}" | grep -i "<html"
