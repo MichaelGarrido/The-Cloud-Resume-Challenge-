@@ -1,4 +1,9 @@
-output "website_url" {
-  value       = "http://${aws_s3_bucket.static_website.bucket}.s3-website-${var.aws_region}.amazonaws.com"
-  description = "URL of the static website"
+output "site_url" {
+  value       = "https://${var.domain_name}"
+  description = "Custom domain URL"
+}
+
+output "cloudfront_distribution_id" {
+  value       = aws_cloudfront_distribution.cdn.id
+  description = "CloudFront distribution ID"
 }
