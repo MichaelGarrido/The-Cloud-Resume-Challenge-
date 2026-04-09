@@ -18,15 +18,6 @@ data "aws_route53_zone" "main" {
   private_zone = false
 }
 
-resource "aws_s3_bucket" "static_website" {
-  bucket = var.bucket_name
-
-  tags = {
-    Name        = "Cloud Resume Website"
-    Environment = "prod"
-  }
-}
-
 resource "aws_s3_bucket_public_access_block" "private" {
   bucket                  = aws_s3_bucket.static_website.id
   block_public_acls       = true
