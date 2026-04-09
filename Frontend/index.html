@@ -80,5 +80,20 @@
 
             </header>
           </section>
+          <p>Visitor count: <span id="visitor-count">Loading...</span></p>
+          <script>
+            async function updateVisitorCount() {
+              try {
+                const response = await fetch("https://zij643ahkc.execute-api.us-east-1.amazonaws.com/counter");
+                const data = await response.json();
+                document.getElementById("visitor-count").textContent = data.count;
+              } catch (error) {
+                console.error("Error fetching visitor count:", error);
+                document.getElementById("visitor-count").textContent = "Unavailable";
+              }
+            }
+          
+            updateVisitorCount();
+          </script>
     </body>
 </html>
