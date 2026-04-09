@@ -1,4 +1,4 @@
-# Random ID (for unique bucket name)
+# Random ID (for unique bucket & OAC names)
 resource "random_id" "bucket_id" {
   byte_length = 4
 }
@@ -13,11 +13,7 @@ resource "aws_s3_bucket" "static_website" {
   }
 }
 
-data "aws_route53_zone" "main" {
-  name         = var.domain_name
-  private_zone = false
-}
-
+# Block ALL public access (CloudFront only)
 resource "aws_s3_bucket_public_access_block" "private" {
   bucket                  = aws_s3_bucket.static_website.id
   block_public_acls       = true
@@ -26,6 +22,13 @@ resource "aws_s3_bucket_public_access_block" "private" {
   restrict_public_buckets = true
 }
 
+# Get Route53 zone
+data "aws_route53_zone" "main" {
+  name         = var.domain_name
+  private_zone = false
+}
+
+# ACM Certificate (must be in us-east-1 for CloudFront)
 resource "aws_acm_certificate" "cert" {
   provider                  = aws.us_east_1
   domain_name               = var.domain_name
@@ -37,6 +40,7 @@ resource "aws_acm_certificate" "cert" {
   }
 }
 
+# Route53 validation records (FIXED)
 resource "aws_route53_record" "cert_validation" {
   for_each = {
     for dvo in aws_acm_certificate.cert.domain_validation_options :
@@ -47,27 +51,31 @@ resource "aws_route53_record" "cert_validation" {
     }
   }
 
-  zone_id = data.aws_route53_zone.main.zone_id
-  name    = each.value.name
-  type    = each.value.type
-  ttl     = 60
-  records = [each.value.record]
+  zone_id         = data.aws_route53_zone.main.zone_id
+  name            = each.value.name
+  type            = each.value.type
+  ttl             = 60
+  records         = [each.value.record]
+  allow_overwrite = true
 }
 
+# Validate cert
 resource "aws_acm_certificate_validation" "cert" {
   provider                = aws.us_east_1
   certificate_arn         = aws_acm_certificate.cert.arn
   validation_record_fqdns = [for r in aws_route53_record.cert_validation : r.fqdn]
 }
 
+# CloudFront OAC (FIXED UNIQUE NAME)
 resource "aws_cloudfront_origin_access_control" "oac" {
-  name                              = "${var.bucket_name}-oac"
+  name                              = "${var.bucket_name}-${random_id.bucket_id.hex}-oac"
   description                       = "OAC for private S3 origin"
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
   signing_protocol                  = "sigv4"
 }
 
+# CloudFront Distribution
 resource "aws_cloudfront_distribution" "cdn" {
   enabled             = true
   default_root_object = "index.html"
@@ -98,6 +106,7 @@ resource "aws_cloudfront_distribution" "cdn" {
     }
   }
 
+  # Handle SPA / errors
   custom_error_response {
     error_code            = 403
     response_code         = 404
@@ -127,6 +136,7 @@ resource "aws_cloudfront_distribution" "cdn" {
   depends_on = [aws_acm_certificate_validation.cert]
 }
 
+# Allow ONLY CloudFront to access S3
 resource "aws_s3_bucket_policy" "allow_cloudfront_only" {
   bucket = aws_s3_bucket.static_website.id
 
@@ -153,10 +163,12 @@ resource "aws_s3_bucket_policy" "allow_cloudfront_only" {
   depends_on = [aws_cloudfront_distribution.cdn]
 }
 
+# Root domain → CloudFront (FIXED)
 resource "aws_route53_record" "root" {
-  zone_id = data.aws_route53_zone.main.zone_id
-  name    = var.domain_name
-  type    = "A"
+  zone_id         = data.aws_route53_zone.main.zone_id
+  name            = var.domain_name
+  type            = "A"
+  allow_overwrite = true
 
   alias {
     name                   = aws_cloudfront_distribution.cdn.domain_name
@@ -165,10 +177,12 @@ resource "aws_route53_record" "root" {
   }
 }
 
+# www domain → CloudFront (FIXED)
 resource "aws_route53_record" "www" {
-  zone_id = data.aws_route53_zone.main.zone_id
-  name    = "www.${var.domain_name}"
-  type    = "A"
+  zone_id         = data.aws_route53_zone.main.zone_id
+  name            = "www.${var.domain_name}"
+  type            = "A"
+  allow_overwrite = true
 
   alias {
     name                   = aws_cloudfront_distribution.cdn.domain_name
@@ -177,6 +191,7 @@ resource "aws_route53_record" "www" {
   }
 }
 
+# Upload website files
 resource "aws_s3_object" "website_files" {
   for_each = fileset("${path.module}/${var.website_files_path}", "**/*")
 
