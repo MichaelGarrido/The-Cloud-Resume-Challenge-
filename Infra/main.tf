@@ -1,3 +1,18 @@
+# Random ID (for unique bucket name)
+resource "random_id" "bucket_id" {
+  byte_length = 4
+}
+
+# S3 Bucket
+resource "aws_s3_bucket" "static_website" {
+  bucket = "${var.bucket_name}-${random_id.bucket_id.hex}"
+
+  tags = {
+    Name        = "Cloud Resume Website"
+    Environment = "prod"
+  }
+}
+
 data "aws_route53_zone" "main" {
   name         = var.domain_name
   private_zone = false
