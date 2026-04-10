@@ -1,4 +1,11 @@
-bucket_name        = "my-cloud-resume-mg"
-website_files_path = "../Frontend"
-aws_region         = "us-east-1"
-domain_name        = "michaelgarridoresume.com"
+bucket_name                  = "my-cloud-resume-mg"
+website_files_path           = "../Frontend"
+aws_region                   = "us-east-1"
+domain_name                  = "michaelgarridoresume.com"
+alert_email                  = "mpgm1798@gmail.com"
+lambda_function_name         = "resume-visitor-counter"
+lambda_error_threshold       = 1
+lambda_duration_threshold_ms = 2000
+lambda_invocation_threshold  = 100
+pagerduty_integration_key    = "1a9a42a3f1b84c07d01baf10f723b853"
+pagerduty_url                = "https://events.pagerduty.com/v2/enqueue"
