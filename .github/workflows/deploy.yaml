@@ -10,7 +10,7 @@ on:
       - "Infra/**"
       - "tests/**"
       - "pytest.ini"
-      - ".github/workflows/deploy.yml"
+      - ".github/workflows/deploy.yaml"
 
 permissions:
   id-token: write
