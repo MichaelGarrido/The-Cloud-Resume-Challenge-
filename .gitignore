@@ -1,7 +1,29 @@
-**/.terraform/*
+# Terraform
+.terraform/
 *.tfstate
 *.tfstate.*
 *.tfplan
-.terraform.lock.hcl
+crash.log
+
+# Node
+node_modules/
+npm-debug.log
+package-lock.json # ❌ REMOVE THIS LINE IF YOU WANT TO KEEP LOCK FILE (see below)
+
+# Cypress artifacts
+cypress/screenshots/
+cypress/videos/
+cypress/downloads/
+
+# Python
+__pycache__/
+.pytest_cache/
+*.pyc
+.venv/
+venv/
+
+# macOS
 .DS_Store
+
+# VS Code
 .vscode/
