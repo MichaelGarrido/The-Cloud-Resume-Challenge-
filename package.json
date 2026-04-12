@@ -1,0 +1,27 @@
+{
+  "name": "the-cloud-resume-challenge-",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "cypress:open": "cypress open",
+    "cypress:run": "cypress run"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MichaelGarrido/The-Cloud-Resume-Challenge-.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/MichaelGarrido/The-Cloud-Resume-Challenge-/issues"
+  },
+  "homepage": "https://github.com/MichaelGarrido/The-Cloud-Resume-Challenge-#readme",
+  "devDependencies": {
+    "cypress": "^14.5.4"
+  }
+}
