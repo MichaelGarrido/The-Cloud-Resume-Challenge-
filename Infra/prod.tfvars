@@ -1,11 +1,2 @@
-environment                  = "prod"
-bucket_name                  = "my-cloud-resume-mg"
-website_files_path           = "../Frontend"
-aws_region                   = "us-east-1"
-domain_name                  = "michaelgarridoresume.com"
-alert_email                  = "mpgm1798@gmail.com"
-lambda_function_name         = "resume-visitor-counter-prod"
-lambda_error_threshold       = 1
-lambda_duration_threshold_ms = 2000
-lambda_invocation_threshold  = 100
-api_url                      = "https://9ofcvrxgx3.execute-api.us-east-1.amazonaws.com"
+environment = "prod"
+api_url     = "https://9ofcvrxgx3.execute-api.us-east-1.amazonaws.com"
