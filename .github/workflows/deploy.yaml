@@ -1,6 +1,21 @@
 name: Deploy Resume Site
 
 on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "Frontend/**"
+      - "Backend/**"
+      - "Infra/**"
+      - "tests/**"
+      - "cypress/**"
+      - "cypress.config.js"
+      - "package.json"
+      - "package-lock.json"
+      - "pytest.ini"
+      - ".github/workflows/deploy.yaml"
+
   push:
     branches:
       - main
@@ -31,8 +46,8 @@ jobs:
 
       - name: Check required frontend files
         run: |
-          test -f Frontend/index.html
           test -f Frontend/error.html
+          test -f Frontend/index.html.tpl
           echo "Frontend looks good"
 
   test:
@@ -80,7 +95,12 @@ jobs:
 
       - name: Terraform Init
         working-directory: Infra
-        run: terraform init -input=false
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            terraform init -input=false -reconfigure -backend-config=backend-dev.hcl
+          else
+            terraform init -input=false -reconfigure -backend-config=backend-prod.hcl
+          fi
 
       - name: Terraform Format Check
         working-directory: Infra
@@ -92,7 +112,12 @@ jobs:
 
       - name: Terraform Apply
         working-directory: Infra
-        run: terraform apply -auto-approve
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            terraform apply -auto-approve -var-file=dev.tfvars
+          else
+            terraform apply -auto-approve -var-file=prod.tfvars
+          fi
 
       - name: Read Terraform outputs
         id: tf

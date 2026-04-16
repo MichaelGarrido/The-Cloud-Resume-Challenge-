@@ -57,3 +57,13 @@ variable "pagerduty_url" {
   type      = string
   sensitive = true
 }
+
+variable "environment" {
+  description = "Deployment environment"
+  type        = string
+}
+
+variable "api_url" {
+  description = "API Gateway URL"
+  type        = string
+}

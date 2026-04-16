@@ -3,13 +3,18 @@ resource "random_id" "bucket_id" {
   byte_length = 4
 }
 
+locals {
+  env     = var.environment
+  is_prod = var.environment == "prod"
+}
+
 # S3 Bucket
 resource "aws_s3_bucket" "static_website" {
-  bucket = "${var.bucket_name}-${random_id.bucket_id.hex}"
+  bucket = "${var.bucket_name}-${var.environment}-${random_id.bucket_id.hex}"
 
   tags = {
     Name        = "Cloud Resume Website"
-    Environment = "prod"
+    Environment = var.environment
   }
 }
 
@@ -28,8 +33,9 @@ data "aws_route53_zone" "main" {
   private_zone = false
 }
 
-# ACM Certificate (must be in us-east-1 for CloudFront)
+# ACM Certificate (prod only, must be in us-east-1 for CloudFront)
 resource "aws_acm_certificate" "cert" {
+  count                     = local.is_prod ? 1 : 0
   provider                  = aws.us_east_1
   domain_name               = var.domain_name
   validation_method         = "DNS"
@@ -40,16 +46,16 @@ resource "aws_acm_certificate" "cert" {
   }
 }
 
-# Route53 validation records (FIXED)
+# Route53 validation records (prod only)
 resource "aws_route53_record" "cert_validation" {
-  for_each = {
-    for dvo in aws_acm_certificate.cert.domain_validation_options :
+  for_each = local.is_prod ? {
+    for dvo in aws_acm_certificate.cert[0].domain_validation_options :
     dvo.domain_name => {
       name   = dvo.resource_record_name
       type   = dvo.resource_record_type
       record = dvo.resource_record_value
     }
-  }
+  } : {}
 
   zone_id         = data.aws_route53_zone.main.zone_id
   name            = each.value.name
@@ -59,16 +65,17 @@ resource "aws_route53_record" "cert_validation" {
   allow_overwrite = true
 }
 
-# Validate cert
+# Validate cert (prod only)
 resource "aws_acm_certificate_validation" "cert" {
+  count                   = local.is_prod ? 1 : 0
   provider                = aws.us_east_1
-  certificate_arn         = aws_acm_certificate.cert.arn
+  certificate_arn         = aws_acm_certificate.cert[0].arn
   validation_record_fqdns = [for r in aws_route53_record.cert_validation : r.fqdn]
 }
 
-# CloudFront OAC (FIXED UNIQUE NAME)
+# CloudFront OAC
 resource "aws_cloudfront_origin_access_control" "oac" {
-  name                              = "${var.bucket_name}-${random_id.bucket_id.hex}-oac"
+  name                              = "${var.bucket_name}-${var.environment}-${random_id.bucket_id.hex}-oac"
   description                       = "OAC for private S3 origin"
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
@@ -80,10 +87,10 @@ resource "aws_cloudfront_distribution" "cdn" {
   enabled             = true
   default_root_object = "index.html"
 
-  aliases = [
+  aliases = local.is_prod ? [
     var.domain_name,
     "www.${var.domain_name}"
-  ]
+  ] : []
 
   origin {
     domain_name              = aws_s3_bucket.static_website.bucket_regional_domain_name
@@ -106,7 +113,6 @@ resource "aws_cloudfront_distribution" "cdn" {
     }
   }
 
-  # Handle SPA / errors
   custom_error_response {
     error_code            = 403
     response_code         = 404
@@ -128,12 +134,12 @@ resource "aws_cloudfront_distribution" "cdn" {
   }
 
   viewer_certificate {
-    acm_certificate_arn      = aws_acm_certificate_validation.cert.certificate_arn
-    ssl_support_method       = "sni-only"
-    minimum_protocol_version = "TLSv1.2_2021"
+    acm_certificate_arn            = local.is_prod ? aws_acm_certificate_validation.cert[0].certificate_arn : null
+    ssl_support_method             = local.is_prod ? "sni-only" : null
+    minimum_protocol_version       = local.is_prod ? "TLSv1.2_2021" : "TLSv1"
+    cloudfront_default_certificate = local.is_prod ? false : true
   }
 
-  depends_on = [aws_acm_certificate_validation.cert]
 }
 
 # Allow ONLY CloudFront to access S3
@@ -163,8 +169,9 @@ resource "aws_s3_bucket_policy" "allow_cloudfront_only" {
   depends_on = [aws_cloudfront_distribution.cdn]
 }
 
-# Root domain → CloudFront (FIXED)
+# Root domain → CloudFront (prod only)
 resource "aws_route53_record" "root" {
+  count           = local.is_prod ? 1 : 0
   zone_id         = data.aws_route53_zone.main.zone_id
   name            = var.domain_name
   type            = "A"
@@ -177,8 +184,9 @@ resource "aws_route53_record" "root" {
   }
 }
 
-# www domain → CloudFront (FIXED)
+# www domain → CloudFront (prod only)
 resource "aws_route53_record" "www" {
+  count           = local.is_prod ? 1 : 0
   zone_id         = data.aws_route53_zone.main.zone_id
   name            = "www.${var.domain_name}"
   type            = "A"
@@ -193,8 +201,10 @@ resource "aws_route53_record" "www" {
 
 # Upload website files
 resource "aws_s3_object" "website_files" {
-  for_each = fileset("${path.module}/${var.website_files_path}", "**/*")
-
+  for_each = {
+    for file in fileset("${path.module}/${var.website_files_path}", "**/*") :
+    file => file if file != "index.html"
+  }
   bucket = aws_s3_bucket.static_website.id
   key    = each.value
   source = "${path.module}/${var.website_files_path}/${each.value}"
@@ -217,4 +227,16 @@ resource "aws_s3_object" "website_files" {
     split(".", each.value)[length(split(".", each.value)) - 1],
     "binary/octet-stream"
   )
+}
+
+
+resource "aws_s3_object" "index" {
+  bucket = aws_s3_bucket.static_website.id
+  key    = "index.html"
+
+  content = templatefile("${path.module}/../Frontend/index.html.tpl", {
+    api_url = var.api_url
+  })
+
+  content_type = "text/html"
 }

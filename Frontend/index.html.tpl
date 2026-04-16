@@ -84,7 +84,7 @@
     <script>
         async function updateVisitorCount() {
             try {
-                const response = await fetch("https://zij643ahkc.execute-api.us-east-1.amazonaws.com/counter");
+                const response = await fetch("${api_url}/counter");
 
                 if (!response.ok) {
                     throw new Error("API request failed");

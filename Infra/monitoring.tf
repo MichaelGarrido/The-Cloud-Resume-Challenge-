@@ -1,5 +1,5 @@
 resource "aws_sns_topic" "resume_alerts" {
-  name = "resume-alerts"
+  name = "resume-alerts-${var.environment}"
 }
 
 resource "aws_sns_topic_subscription" "email_alerts" {
@@ -9,7 +9,7 @@ resource "aws_sns_topic_subscription" "email_alerts" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
-  alarm_name          = "resume-lambda-errors"
+  alarm_name          = "resume-lambda-errors-${var.environment}"
   alarm_description   = "Alert when Lambda reports one or more errors"
   namespace           = "AWS/Lambda"
   metric_name         = "Errors"
@@ -21,7 +21,7 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
   treat_missing_data  = "notBreaching"
 
   dimensions = {
-    FunctionName = var.lambda_function_name
+    FunctionName = aws_lambda_function.visitor_counter.function_name
   }
 
   alarm_actions = [aws_sns_topic.resume_alerts.arn]
@@ -29,7 +29,7 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "lambda_duration" {
-  alarm_name          = "resume-lambda-duration"
+  alarm_name          = "resume-lambda-duration-${var.environment}"
   alarm_description   = "Alert when Lambda average duration is too high"
   namespace           = "AWS/Lambda"
   metric_name         = "Duration"
@@ -41,7 +41,7 @@ resource "aws_cloudwatch_metric_alarm" "lambda_duration" {
   treat_missing_data  = "notBreaching"
 
   dimensions = {
-    FunctionName = var.lambda_function_name
+    FunctionName = aws_lambda_function.visitor_counter.function_name
   }
 
   alarm_actions = [aws_sns_topic.resume_alerts.arn]
@@ -49,7 +49,7 @@ resource "aws_cloudwatch_metric_alarm" "lambda_duration" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "lambda_invocations" {
-  alarm_name          = "resume-lambda-invocations"
+  alarm_name          = "resume-lambda-invocations-${var.environment}"
   alarm_description   = "Alert when Lambda invocations spike unexpectedly"
   namespace           = "AWS/Lambda"
   metric_name         = "Invocations"
@@ -61,7 +61,7 @@ resource "aws_cloudwatch_metric_alarm" "lambda_invocations" {
   treat_missing_data  = "notBreaching"
 
   dimensions = {
-    FunctionName = var.lambda_function_name
+    FunctionName = aws_lambda_function.visitor_counter.function_name
   }
 
   alarm_actions = [aws_sns_topic.resume_alerts.arn]

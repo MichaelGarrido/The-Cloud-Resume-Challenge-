@@ -1,5 +1,5 @@
 resource "aws_iam_role" "pagerduty_notifier_lambda_role" {
-  name = "resume-pagerduty-notifier-role"
+  name = "resume-pagerduty-notifier-role-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
@@ -21,7 +21,7 @@ resource "aws_iam_role_policy_attachment" "pagerduty_notifier_basic" {
 }
 
 resource "aws_lambda_function" "pagerduty_notifier" {
-  function_name = "resume-pagerduty-notifier"
+  function_name = "resume-pagerduty-notifier-${var.environment}"
   role          = aws_iam_role.pagerduty_notifier_lambda_role.arn
   handler       = "pagerduty_notifier.lambda_handler"
   runtime       = "python3.12"
@@ -36,6 +36,7 @@ resource "aws_lambda_function" "pagerduty_notifier" {
     }
   }
 }
+
 
 resource "aws_sns_topic_subscription" "pagerduty_lambda" {
   topic_arn = aws_sns_topic.resume_alerts.arn
