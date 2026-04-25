@@ -3,6 +3,8 @@
 *.tfstate
 *.tfstate.*
 *.tfplan
+*.tfvars
+!*.tfvars.example
 crash.log
 
 # Node
@@ -19,6 +21,7 @@ cypress/downloads/
 __pycache__/
 .pytest_cache/
 *.pyc
+*.zip
 .venv/
 venv/
 

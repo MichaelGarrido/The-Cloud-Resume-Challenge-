@@ -1,3 +1,9 @@
+data "archive_file" "pagerduty_notifier_zip" {
+  type        = "zip"
+  source_file = "${path.module}/../Backend/pagerduty_notifier.py"
+  output_path = "${path.module}/../Backend/pagerduty_notifier.zip"
+}
+
 resource "aws_iam_role" "pagerduty_notifier_lambda_role" {
   name = "resume-pagerduty-notifier-role-${var.environment}"
 
@@ -26,8 +32,14 @@ resource "aws_lambda_function" "pagerduty_notifier" {
   handler       = "pagerduty_notifier.lambda_handler"
   runtime       = "python3.12"
 
-  filename         = "${path.module}/../Backend/pagerduty_notifier.zip"
-  source_code_hash = filebase64sha256("${path.module}/../Backend/pagerduty_notifier.zip")
+  filename         = var.pagerduty_notifier_signed_s3_key == null ? data.archive_file.pagerduty_notifier_zip.output_path : null
+  source_code_hash = var.pagerduty_notifier_signed_s3_key == null ? data.archive_file.pagerduty_notifier_zip.output_base64sha256 : null
+  s3_bucket        = var.pagerduty_notifier_signed_s3_key == null ? null : var.pagerduty_notifier_signed_s3_bucket
+  s3_key           = var.pagerduty_notifier_signed_s3_key
+
+  code_signing_config_arn = aws_lambda_code_signing_config.lambda.arn
+  memory_size             = 128
+  timeout                 = 10
 
   environment {
     variables = {
@@ -35,6 +47,11 @@ resource "aws_lambda_function" "pagerduty_notifier" {
       PAGERDUTY_URL = var.pagerduty_url
     }
   }
+}
+
+resource "aws_cloudwatch_log_group" "pagerduty_notifier" {
+  name              = "/aws/lambda/${aws_lambda_function.pagerduty_notifier.function_name}"
+  retention_in_days = 30
 }
 
 

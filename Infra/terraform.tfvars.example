@@ -1,0 +1,10 @@
+bucket_name                  = "my-cloud-resume-mg"
+website_files_path           = "../Frontend"
+aws_region                   = "us-east-1"
+domain_name                  = "example.com"
+alert_email                  = "alerts@example.com"
+lambda_error_threshold       = 1
+lambda_duration_threshold_ms = 2000
+lambda_invocation_threshold  = 100
+pagerduty_integration_key    = "replace-with-github-secret"
+pagerduty_url                = "https://events.pagerduty.com/v2/enqueue"

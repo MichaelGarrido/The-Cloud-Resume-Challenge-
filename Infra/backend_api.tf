@@ -20,6 +20,10 @@ resource "aws_dynamodb_table" "visitor_counter" {
     Environment = var.environment
     Name        = "visitor-counter-${var.environment}"
   }
+
+  point_in_time_recovery {
+    enabled = true
+  }
 }
 
 # IAM role for Lambda
@@ -44,6 +48,11 @@ resource "aws_iam_role" "visitor_counter_lambda_role" {
 resource "aws_iam_role_policy_attachment" "visitor_counter_lambda_basic" {
   role       = aws_iam_role.visitor_counter_lambda_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy_attachment" "visitor_counter_lambda_xray" {
+  role       = aws_iam_role.visitor_counter_lambda_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 }
 
 # DynamoDB access for Lambda
@@ -73,14 +82,28 @@ resource "aws_lambda_function" "visitor_counter" {
   handler       = "lambda_function.lambda_handler"
   runtime       = "python3.12"
 
-  filename         = data.archive_file.visitor_counter_zip.output_path
-  source_code_hash = data.archive_file.visitor_counter_zip.output_base64sha256
+  filename         = var.visitor_counter_signed_s3_key == null ? data.archive_file.visitor_counter_zip.output_path : null
+  source_code_hash = var.visitor_counter_signed_s3_key == null ? data.archive_file.visitor_counter_zip.output_base64sha256 : null
+  s3_bucket        = var.visitor_counter_signed_s3_key == null ? null : var.visitor_counter_signed_s3_bucket
+  s3_key           = var.visitor_counter_signed_s3_key
+
+  code_signing_config_arn = aws_lambda_code_signing_config.lambda.arn
+  memory_size             = 128
+  timeout                 = 5
+  tracing_config {
+    mode = "Active"
+  }
 
   environment {
     variables = {
       TABLE_NAME = aws_dynamodb_table.visitor_counter.name
     }
   }
+}
+
+resource "aws_cloudwatch_log_group" "visitor_counter" {
+  name              = "/aws/lambda/${aws_lambda_function.visitor_counter.function_name}"
+  retention_in_days = 30
 }
 
 # HTTP API Gateway
@@ -113,6 +136,11 @@ resource "aws_apigatewayv2_stage" "visitor_default" {
   api_id      = aws_apigatewayv2_api.visitor_api.id
   name        = "$default"
   auto_deploy = true
+
+  default_route_settings {
+    throttling_burst_limit = 20
+    throttling_rate_limit  = 10
+  }
 }
 
 resource "aws_lambda_permission" "allow_apigw_to_invoke_visitor_counter" {

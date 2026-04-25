@@ -1,59 +1,41 @@
-name: Deploy Resume Site
+name: Staged Delivery
 
 on:
   pull_request:
     branches:
       - main
-    paths:
-      - "Frontend/**"
-      - "Backend/**"
-      - "Infra/**"
-      - "tests/**"
-      - "cypress/**"
-      - "cypress.config.js"
-      - "package.json"
-      - "package-lock.json"
-      - "pytest.ini"
-      - ".github/workflows/deploy.yaml"
-
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - closed
   push:
     branches:
       - main
-    paths:
-      - "Frontend/**"
-      - "Backend/**"
-      - "Infra/**"
-      - "tests/**"
-      - "cypress/**"
-      - "cypress.config.js"
-      - "package.json"
-      - "package-lock.json"
-      - "pytest.ini"
-      - ".github/workflows/deploy.yaml"
+  workflow_dispatch:
 
 permissions:
   id-token: write
   contents: read
+  security-events: write
+  actions: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  TF_VAR_aws_region: ${{ vars.AWS_REGION }}
+  TF_VAR_bucket_name: ${{ vars.BUCKET_NAME }}
+  TF_VAR_domain_name: ${{ vars.DOMAIN_NAME }}
+  TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
+  TF_VAR_pagerduty_integration_key: ${{ secrets.PAGERDUTY_INTEGRATION_KEY }}
+  TF_VAR_pagerduty_url: ${{ vars.PAGERDUTY_URL }}
 
 jobs:
-  build:
-    name: Build / Validate Frontend
+  validate:
+    name: Validate Code and IaC
+    if: github.event_name != 'pull_request' || github.event.action != 'closed'
     runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Check required frontend files
-        run: |
-          test -f Frontend/error.html
-          test -f Frontend/index.html.tpl
-          echo "Frontend looks good"
-
-  test:
-    name: Run Python Tests
-    runs-on: ubuntu-latest
-    needs: build
 
     steps:
       - name: Checkout
@@ -62,94 +44,167 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.12"
 
-      - name: Install dependencies
+      - name: Install Python test dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pytest boto3
 
-      - name: Run tests
+      - name: Run Python tests
         run: pytest -v
 
-  deploy:
-    name: Deploy Infra and Site
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform format check
+        working-directory: Infra
+        run: terraform fmt -check
+
+      - name: Terraform validate
+        working-directory: Infra
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+
+  backend-artifact-security:
+    name: SBOM and Dependency Vulnerability Scan
+    if: github.event_name != 'pull_request' || github.event.action != 'closed'
     runs-on: ubuntu-latest
-    needs: test
-    outputs:
-      site_url: ${{ steps.tf.outputs.site_url }}
-      distribution_id: ${{ steps.tf.outputs.distribution_id }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials via OIDC
+      - name: Build Lambda artifact directories
+        run: |
+          mkdir -p build/lambda-artifacts/visitor-counter build/lambda-artifacts/pagerduty-notifier
+          cp Backend/lambda_function.py build/lambda-artifacts/visitor-counter/lambda_function.py
+          cp Backend/pagerduty_notifier.py build/lambda-artifacts/pagerduty-notifier/pagerduty_notifier.py
+
+      - name: Generate SBOM with Syft
+        uses: anchore/sbom-action@v0
+        with:
+          path: ./build/lambda-artifacts
+          format: spdx-json
+          output-file: ./build/lambda-sbom.spdx.json
+          artifact-name: lambda-sbom.spdx.json
+          upload-artifact: true
+
+      - name: Scan SBOM with Grype
+        id: grype
+        uses: anchore/scan-action@v7
+        with:
+          sbom: ./build/lambda-sbom.spdx.json
+          fail-build: true
+          severity-cutoff: high
+          output-format: sarif
+
+      - name: Upload Grype SARIF
+        if: always() && steps.grype.outputs.sarif != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ steps.grype.outputs.sarif }}
+
+  deploy-test:
+    name: Deploy PR Test Environment
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    needs:
+      - validate
+      - backend-artifact-security
+    outputs:
+      site_url: ${{ steps.tf_outputs.outputs.site_url }}
+      distribution_id: ${{ steps.tf_outputs.outputs.distribution_id }}
+    concurrency:
+      group: pr-${{ github.event.pull_request.number }}-test-environment
+      cancel-in-progress: false
+    environment:
+      name: test-pr-${{ github.event.pull_request.number }}
+      url: ${{ steps.tf_outputs.outputs.site_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure test AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-to-assume: ${{ secrets.TEST_AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      - name: Terraform Init
+      - name: Terraform init test state
         working-directory: Infra
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            terraform init -input=false -reconfigure -backend-config=backend-dev.hcl
-          else
-            terraform init -input=false -reconfigure -backend-config=backend-prod.hcl
-          fi
+          terraform init -input=false -reconfigure \
+            -backend-config="bucket=${{ vars.TEST_TF_STATE_BUCKET }}" \
+            -backend-config="key=cloud-resume/pr-${{ github.event.pull_request.number }}/terraform.tfstate" \
+            -backend-config="region=${{ vars.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ vars.TEST_TF_LOCK_TABLE }}" \
+            -backend-config="encrypt=true"
 
-      - name: Terraform Format Check
-        working-directory: Infra
-        run: terraform fmt -check
-
-      - name: Terraform Validate
-        working-directory: Infra
-        run: terraform validate
-
-      - name: Terraform Apply
+      - name: Bootstrap Lambda signing resources
         working-directory: Infra
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            terraform apply -auto-approve -var-file=dev.tfvars
-          else
-            terraform apply -auto-approve -var-file=prod.tfvars
-          fi
+          terraform apply -auto-approve \
+            -target=aws_s3_bucket.lambda_signing_artifacts \
+            -target=aws_s3_bucket_public_access_block.lambda_signing_artifacts \
+            -target=aws_s3_bucket_versioning.lambda_signing_artifacts \
+            -target=aws_s3_bucket_lifecycle_configuration.lambda_signing_artifacts \
+            -target=aws_signer_signing_profile.lambda \
+            -target=aws_lambda_code_signing_config.lambda \
+            -var="environment=pr-${{ github.event.pull_request.number }}"
+
+      - name: Build Lambda zip files
+        run: |
+          mkdir -p build/lambda
+          zip -j build/lambda/visitor-counter.zip Backend/lambda_function.py
+          zip -j build/lambda/pagerduty-notifier.zip Backend/pagerduty_notifier.py
+
+      - name: Sign Lambda zip files
+        id: signed
+        env:
+          SIGNING_PREFIX: pr-${{ github.event.pull_request.number }}/${{ github.sha }}
+        run: |
+          profile_name="$(terraform -chdir=Infra output -raw lambda_signing_profile_name)"
+          bucket="$(terraform -chdir=Infra output -raw lambda_signing_artifacts_bucket)"
+          visitor_key="$(SIGNING_PROFILE_NAME="${profile_name}" SIGNING_BUCKET="${bucket}" SIGNING_PREFIX="${SIGNING_PREFIX}" .github/scripts/sign-lambda-artifact.sh build/lambda/visitor-counter.zip visitor-counter.zip)"
+          pagerduty_key="$(SIGNING_PROFILE_NAME="${profile_name}" SIGNING_BUCKET="${bucket}" SIGNING_PREFIX="${SIGNING_PREFIX}" .github/scripts/sign-lambda-artifact.sh build/lambda/pagerduty-notifier.zip pagerduty-notifier.zip)"
+          echo "bucket=${bucket}" >> "$GITHUB_OUTPUT"
+          echo "visitor_key=${visitor_key}" >> "$GITHUB_OUTPUT"
+          echo "pagerduty_key=${pagerduty_key}" >> "$GITHUB_OUTPUT"
+
+      - name: Terraform apply test environment
+        working-directory: Infra
+        run: |
+          terraform apply -auto-approve \
+            -var="environment=pr-${{ github.event.pull_request.number }}" \
+            -var="visitor_counter_signed_s3_bucket=${{ steps.signed.outputs.bucket }}" \
+            -var="visitor_counter_signed_s3_key=${{ steps.signed.outputs.visitor_key }}" \
+            -var="pagerduty_notifier_signed_s3_bucket=${{ steps.signed.outputs.bucket }}" \
+            -var="pagerduty_notifier_signed_s3_key=${{ steps.signed.outputs.pagerduty_key }}"
 
       - name: Read Terraform outputs
-        id: tf
+        id: tf_outputs
         working-directory: Infra
         run: |
           echo "site_url=$(terraform output -raw site_url)" >> "$GITHUB_OUTPUT"
           echo "distribution_id=$(terraform output -raw cloudfront_distribution_id)" >> "$GITHUB_OUTPUT"
 
-      - name: Invalidate CloudFront cache
+      - name: Invalidate test CloudFront cache
         run: |
           aws cloudfront create-invalidation \
-            --distribution-id "${{ steps.tf.outputs.distribution_id }}" \
+            --distribution-id "${{ steps.tf_outputs.outputs.distribution_id }}" \
             --paths "/*"
 
-  smoke-test:
-    name: Smoke Test
-    runs-on: ubuntu-latest
-    needs: deploy
-
-    steps:
-      - name: Check homepage headers
-        run: |
-          curl -I "${{ needs.deploy.outputs.site_url }}"
-
-      - name: Check homepage body
-        run: |
-          curl -s "${{ needs.deploy.outputs.site_url }}" | grep -i "<html"
-
   e2e-test:
-    name: End-to-End Test
+    name: Cypress Test Environment E2E
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
-    needs: deploy
+    needs: deploy-test
 
     steps:
       - name: Checkout
@@ -163,5 +218,154 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run Cypress tests
+      - name: Run Cypress tests against PR site
+        env:
+          CYPRESS_BASE_URL: ${{ needs.deploy-test.outputs.site_url }}
         run: npx cypress run
+
+  deploy-production:
+    name: Deploy Production
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    needs:
+      - validate
+      - backend-artifact-security
+    environment:
+      name: production
+    outputs:
+      site_url: ${{ steps.tf_outputs.outputs.site_url }}
+      distribution_id: ${{ steps.tf_outputs.outputs.distribution_id }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure production AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.PROD_AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform init production state
+        working-directory: Infra
+        run: |
+          terraform init -input=false -reconfigure \
+            -backend-config="bucket=${{ vars.PROD_TF_STATE_BUCKET }}" \
+            -backend-config="key=cloud-resume/prod/terraform.tfstate" \
+            -backend-config="region=${{ vars.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ vars.PROD_TF_LOCK_TABLE }}" \
+            -backend-config="encrypt=true"
+
+      - name: Bootstrap Lambda signing resources
+        working-directory: Infra
+        run: |
+          terraform apply -auto-approve \
+            -target=aws_s3_bucket.lambda_signing_artifacts \
+            -target=aws_s3_bucket_public_access_block.lambda_signing_artifacts \
+            -target=aws_s3_bucket_versioning.lambda_signing_artifacts \
+            -target=aws_s3_bucket_lifecycle_configuration.lambda_signing_artifacts \
+            -target=aws_signer_signing_profile.lambda \
+            -target=aws_lambda_code_signing_config.lambda \
+            -var-file=prod.tfvars
+
+      - name: Build Lambda zip files
+        run: |
+          mkdir -p build/lambda
+          zip -j build/lambda/visitor-counter.zip Backend/lambda_function.py
+          zip -j build/lambda/pagerduty-notifier.zip Backend/pagerduty_notifier.py
+
+      - name: Sign Lambda zip files
+        id: signed
+        env:
+          SIGNING_PREFIX: prod/${{ github.sha }}
+        run: |
+          profile_name="$(terraform -chdir=Infra output -raw lambda_signing_profile_name)"
+          bucket="$(terraform -chdir=Infra output -raw lambda_signing_artifacts_bucket)"
+          visitor_key="$(SIGNING_PROFILE_NAME="${profile_name}" SIGNING_BUCKET="${bucket}" SIGNING_PREFIX="${SIGNING_PREFIX}" .github/scripts/sign-lambda-artifact.sh build/lambda/visitor-counter.zip visitor-counter.zip)"
+          pagerduty_key="$(SIGNING_PROFILE_NAME="${profile_name}" SIGNING_BUCKET="${bucket}" SIGNING_PREFIX="${SIGNING_PREFIX}" .github/scripts/sign-lambda-artifact.sh build/lambda/pagerduty-notifier.zip pagerduty-notifier.zip)"
+          echo "bucket=${bucket}" >> "$GITHUB_OUTPUT"
+          echo "visitor_key=${visitor_key}" >> "$GITHUB_OUTPUT"
+          echo "pagerduty_key=${pagerduty_key}" >> "$GITHUB_OUTPUT"
+
+      - name: Terraform apply production
+        working-directory: Infra
+        run: |
+          terraform apply -auto-approve \
+            -var-file=prod.tfvars \
+            -var="visitor_counter_signed_s3_bucket=${{ steps.signed.outputs.bucket }}" \
+            -var="visitor_counter_signed_s3_key=${{ steps.signed.outputs.visitor_key }}" \
+            -var="pagerduty_notifier_signed_s3_bucket=${{ steps.signed.outputs.bucket }}" \
+            -var="pagerduty_notifier_signed_s3_key=${{ steps.signed.outputs.pagerduty_key }}"
+
+      - name: Read Terraform outputs
+        id: tf_outputs
+        working-directory: Infra
+        run: |
+          echo "site_url=$(terraform output -raw site_url)" >> "$GITHUB_OUTPUT"
+          echo "distribution_id=$(terraform output -raw cloudfront_distribution_id)" >> "$GITHUB_OUTPUT"
+
+      - name: Invalidate production CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ steps.tf_outputs.outputs.distribution_id }}" \
+            --paths "/*"
+
+  production-e2e:
+    name: Cypress Production E2E
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    needs: deploy-production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Cypress tests against production
+        env:
+          CYPRESS_BASE_URL: ${{ needs.deploy-production.outputs.site_url }}
+        run: npx cypress run
+
+  cleanup-merged-test:
+    name: Cleanup Merged PR Test Environment
+    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure test AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.TEST_AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform init merged PR test state
+        working-directory: Infra
+        run: |
+          terraform init -input=false -reconfigure \
+            -backend-config="bucket=${{ vars.TEST_TF_STATE_BUCKET }}" \
+            -backend-config="key=cloud-resume/pr-${{ github.event.pull_request.number }}/terraform.tfstate" \
+            -backend-config="region=${{ vars.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ vars.TEST_TF_LOCK_TABLE }}" \
+            -backend-config="encrypt=true"
+
+      - name: Destroy merged PR test environment
+        working-directory: Infra
+        run: |
+          terraform destroy -auto-approve \
+            -var="environment=pr-${{ github.event.pull_request.number }}"

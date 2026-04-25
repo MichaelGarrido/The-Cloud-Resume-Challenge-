@@ -1,0 +1,52 @@
+name: Verify Signed Commits
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  verify:
+    name: Verify Signed Commits
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check commit signatures
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            let shas = [];
+            if (context.eventName === "pull_request") {
+              const commits = await github.paginate(github.rest.pulls.listCommits, {
+                owner,
+                repo,
+                pull_number: context.payload.pull_request.number,
+                per_page: 100,
+              });
+              shas = commits.map((commit) => commit.sha);
+            } else {
+              shas = context.payload.commits.map((commit) => commit.id);
+            }
+
+            const unsigned = [];
+            for (const sha of shas) {
+              const { data } = await github.rest.repos.getCommit({ owner, repo, ref: sha });
+              const verification = data.commit.verification;
+              if (!verification.verified) {
+                unsigned.push(`${sha.slice(0, 12)} (${verification.reason})`);
+              }
+            }
+
+            if (unsigned.length > 0) {
+              core.setFailed(`Unsigned or unverified commits found:\n${unsigned.join("\n")}`);
+            }

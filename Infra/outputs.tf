@@ -17,3 +17,11 @@ output "visitor_counter_lambda_name" {
 output "visitor_counter_table_name" {
   value = aws_dynamodb_table.visitor_counter.name
 }
+
+output "lambda_signing_profile_name" {
+  value = aws_signer_signing_profile.lambda.name
+}
+
+output "lambda_signing_artifacts_bucket" {
+  value = aws_s3_bucket.lambda_signing_artifacts.bucket
+}

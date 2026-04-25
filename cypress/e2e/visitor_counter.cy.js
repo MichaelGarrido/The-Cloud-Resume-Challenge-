@@ -1,6 +1,6 @@
 describe("Resume site visitor counter", () => {
   it("increments the visitor count after reload", () => {
-    cy.visit("https://michaelgarridoresume.com");
+    cy.visit("/");
 
     cy.get("#visitor-count", { timeout: 10000 })
       .should(($el) => {

@@ -25,11 +25,6 @@ variable "alert_email" {
   type        = string
 }
 
-variable "lambda_function_name" {
-  description = "Name of the Lambda function to monitor"
-  type        = string
-}
-
 variable "lambda_error_threshold" {
   description = "Alarm if Lambda errors are >= this value"
   type        = number
@@ -63,7 +58,37 @@ variable "environment" {
   type        = string
 }
 
-variable "api_url" {
-  description = "API Gateway URL"
+variable "visitor_counter_signed_s3_bucket" {
+  description = "S3 bucket containing the signed visitor counter Lambda package"
   type        = string
+  default     = null
+}
+
+variable "visitor_counter_signed_s3_key" {
+  description = "S3 key for the signed visitor counter Lambda package"
+  type        = string
+  default     = null
+}
+
+variable "pagerduty_notifier_signed_s3_bucket" {
+  description = "S3 bucket containing the signed PagerDuty notifier Lambda package"
+  type        = string
+  default     = null
+}
+
+variable "pagerduty_notifier_signed_s3_key" {
+  description = "S3 key for the signed PagerDuty notifier Lambda package"
+  type        = string
+  default     = null
+}
+
+variable "lambda_code_signing_policy" {
+  description = "How Lambda handles unsigned or invalidly signed deployment packages"
+  type        = string
+  default     = "Enforce"
+
+  validation {
+    condition     = contains(["Enforce", "Warn"], var.lambda_code_signing_policy)
+    error_message = "lambda_code_signing_policy must be Enforce or Warn."
+  }
 }

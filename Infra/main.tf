@@ -29,6 +29,7 @@ resource "aws_s3_bucket_public_access_block" "private" {
 
 # Get Route53 zone
 data "aws_route53_zone" "main" {
+  count        = local.is_prod ? 1 : 0
   name         = var.domain_name
   private_zone = false
 }
@@ -57,7 +58,7 @@ resource "aws_route53_record" "cert_validation" {
     }
   } : {}
 
-  zone_id         = data.aws_route53_zone.main.zone_id
+  zone_id         = data.aws_route53_zone.main[0].zone_id
   name            = each.value.name
   type            = each.value.type
   ttl             = 60
@@ -172,7 +173,7 @@ resource "aws_s3_bucket_policy" "allow_cloudfront_only" {
 # Root domain → CloudFront (prod only)
 resource "aws_route53_record" "root" {
   count           = local.is_prod ? 1 : 0
-  zone_id         = data.aws_route53_zone.main.zone_id
+  zone_id         = data.aws_route53_zone.main[0].zone_id
   name            = var.domain_name
   type            = "A"
   allow_overwrite = true
@@ -187,7 +188,7 @@ resource "aws_route53_record" "root" {
 # www domain → CloudFront (prod only)
 resource "aws_route53_record" "www" {
   count           = local.is_prod ? 1 : 0
-  zone_id         = data.aws_route53_zone.main.zone_id
+  zone_id         = data.aws_route53_zone.main[0].zone_id
   name            = "www.${var.domain_name}"
   type            = "A"
   allow_overwrite = true
@@ -235,7 +236,7 @@ resource "aws_s3_object" "index" {
   key    = "index.html"
 
   content = templatefile("${path.module}/../Frontend/index.html.tpl", {
-    api_url = var.api_url
+    api_url = aws_apigatewayv2_api.visitor_api.api_endpoint
   })
 
   content_type = "text/html"
