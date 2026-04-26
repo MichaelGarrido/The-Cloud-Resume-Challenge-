@@ -299,7 +299,7 @@
             } catch (error) {
                 console.error("Error asking chatbot:", error);
                 statusMessage.className = "chat-message bot error";
-                statusMessage.textContent = "I could not answer right now. Please try again or contact Michael directly.";
+                statusMessage.textContent = error.message || "I could not answer right now. Please try again or contact Michael directly.";
             } finally {
                 input.disabled = false;
                 button.disabled = false;

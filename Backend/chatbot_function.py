@@ -89,6 +89,67 @@ def ask_openai(question, knowledge_base):
     return answer
 
 
+def local_fallback_answer(question, knowledge_base):
+    normalized_question = question.lower()
+
+    if any(greeting in normalized_question for greeting in ["hello", "hi", "hey"]):
+        return (
+            "Hi. I can answer questions about Michael's DevOps experience, AWS projects, "
+            "Terraform work, CI/CD pipelines, monitoring, and portfolio architecture."
+        )
+
+    if "terraform" in normalized_question:
+        return (
+            "Michael uses Terraform for infrastructure as code. In his Cloud Resume project, "
+            "Terraform manages AWS resources including S3, CloudFront, Route 53, API Gateway, "
+            "Lambda, DynamoDB, CloudWatch, SNS, PagerDuty integration, remote state, and Lambda "
+            "code signing. He also used Terraform in an AWS EKS CI/CD project."
+        )
+
+    if any(term in normalized_question for term in ["experience", "background", "resume"]):
+        return (
+            "Michael has 2+ years of DevOps, Site Reliability, and Platform Engineering experience. "
+            "He supports large-scale production systems, CI/CD automation, incident response, cloud "
+            "infrastructure, observability, and release validation across 12+ environments."
+        )
+
+    if any(term in normalized_question for term in ["aws", "cloud", "architecture"]):
+        return (
+            "Michael's portfolio uses AWS S3, CloudFront, Route 53, API Gateway, Lambda, DynamoDB, "
+            "ACM, CloudWatch, SNS, PagerDuty, Terraform, GitHub Actions, pytest, Cypress, CodeQL, "
+            "Syft, Grype, and AWS Lambda code signing."
+        )
+
+    if any(term in normalized_question for term in ["cicd", "ci/cd", "pipeline", "github actions"]):
+        return (
+            "Michael has experience with CI/CD using GitHub Actions, Jenkins, and Bamboo. "
+            "This portfolio uses GitHub Actions for testing, security scanning, signed Lambda "
+            "artifact deployment, Terraform apply, and CloudFront invalidation."
+        )
+
+    if any(term in normalized_question for term in ["contact", "email", "github"]):
+        return (
+            "You can contact Michael at mpgm1798@gmail.com or visit his GitHub profile at "
+            "https://github.com/MichaelGarrido."
+        )
+
+    return (
+        "I can answer questions about Michael's resume, DevOps background, AWS and Terraform "
+        "projects, CI/CD work, monitoring, and portfolio architecture. For anything outside that "
+        "scope, please contact Michael directly."
+    )
+
+
+def parse_openai_error(error):
+    try:
+        details = json.loads(error.read().decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return "", ""
+
+    error_details = details.get("error", {})
+    return error_details.get("code", ""), error_details.get("message", "")
+
+
 def lambda_handler(event, context):
     try:
         question = parse_question(event)
@@ -106,8 +167,13 @@ def lambda_handler(event, context):
         return response(500, {"error": "OPENAI_API_KEY is not configured."})
 
     except urllib.error.HTTPError as error:
-        details = error.read().decode("utf-8")
-        print(f"OpenAI API error: {details}")
+        code, message = parse_openai_error(error)
+        print(f"OpenAI API error: {code} {message}")
+
+        if code in {"insufficient_quota", "rate_limit_exceeded"}:
+            answer = local_fallback_answer(question, load_knowledge_base())
+            return response(200, {"answer": answer, "source": "local_fallback"})
+
         return response(502, {"error": "The chatbot service could not answer right now."})
 
     except Exception as error:

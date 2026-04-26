@@ -1,4 +1,6 @@
 import json
+import io
+import urllib.error
 from unittest.mock import patch
 
 from Backend import chatbot_function
@@ -74,3 +76,31 @@ def test_missing_openai_key_returns_error():
     assert result["statusCode"] == 500
     body = json.loads(result["body"])
     assert body["error"] == "OPENAI_API_KEY is not configured."
+
+
+def test_quota_error_returns_local_fallback_answer():
+    event = {
+        "body": json.dumps({"question": "What is Michael's Terraform experience?"})
+    }
+    error_body = json.dumps({
+        "error": {
+            "code": "insufficient_quota",
+            "message": "You exceeded your current quota."
+        }
+    }).encode("utf-8")
+    quota_error = urllib.error.HTTPError(
+        url="https://api.openai.com/v1/responses",
+        code=429,
+        msg="Too Many Requests",
+        hdrs={},
+        fp=io.BytesIO(error_body),
+    )
+
+    with patch("Backend.chatbot_function.load_knowledge_base", return_value="Knowledge"):
+        with patch("Backend.chatbot_function.ask_openai", side_effect=quota_error):
+            result = chatbot_function.lambda_handler(event, {})
+
+    assert result["statusCode"] == 200
+    body = json.loads(result["body"])
+    assert body["source"] == "local_fallback"
+    assert "Terraform" in body["answer"]
