@@ -254,12 +254,7 @@ jobs:
       - name: Terraform init production state
         working-directory: Infra
         run: |
-          terraform init -input=false -reconfigure \
-            -backend-config="bucket=${{ vars.PROD_TF_STATE_BUCKET }}" \
-            -backend-config="key=cloud-resume/terraform.tfstate" \
-            -backend-config="region=${{ vars.AWS_REGION }}" \
-            -backend-config="dynamodb_table=${{ vars.PROD_TF_LOCK_TABLE }}" \
-            -backend-config="encrypt=true"
+          terraform init -input=false -reconfigure -backend-config=backend-prod.hcl
 
       - name: Bootstrap Lambda signing resources
         working-directory: Infra
