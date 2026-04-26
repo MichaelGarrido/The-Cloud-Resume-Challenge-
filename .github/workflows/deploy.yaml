@@ -31,6 +31,7 @@ env:
   TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
   TF_VAR_pagerduty_integration_key: ${{ secrets.PAGERDUTY_INTEGRATION_KEY }}
   TF_VAR_pagerduty_url: ${{ vars.PAGERDUTY_URL }}
+  TF_VAR_openai_api_key: ${{ secrets.OPENAI_API_KEY }}
 
 jobs:
   validate:
@@ -79,9 +80,11 @@ jobs:
 
       - name: Build Lambda artifact directories
         run: |
-          mkdir -p build/lambda-artifacts/visitor-counter build/lambda-artifacts/pagerduty-notifier
+          mkdir -p build/lambda-artifacts/visitor-counter build/lambda-artifacts/pagerduty-notifier build/lambda-artifacts/chatbot
           cp Backend/lambda_function.py build/lambda-artifacts/visitor-counter/lambda_function.py
           cp Backend/pagerduty_notifier.py build/lambda-artifacts/pagerduty-notifier/pagerduty_notifier.py
+          cp Backend/chatbot_function.py build/lambda-artifacts/chatbot/chatbot_function.py
+          cp Backend/chatbot_knowledge.md build/lambda-artifacts/chatbot/chatbot_knowledge.md
 
       - name: Generate SBOM with Syft
         uses: anchore/sbom-action@v0
@@ -165,6 +168,7 @@ jobs:
           mkdir -p build/lambda
           zip -j build/lambda/visitor-counter.zip Backend/lambda_function.py
           zip -j build/lambda/pagerduty-notifier.zip Backend/pagerduty_notifier.py
+          zip -j build/lambda/chatbot.zip Backend/chatbot_function.py Backend/chatbot_knowledge.md
 
       - name: Sign Lambda zip files
         id: signed
@@ -178,6 +182,8 @@ jobs:
           echo "bucket=${bucket}" >> "$GITHUB_OUTPUT"
           echo "visitor_key=${visitor_key}" >> "$GITHUB_OUTPUT"
           echo "pagerduty_key=${pagerduty_key}" >> "$GITHUB_OUTPUT"
+          chatbot_key="$(SIGNING_PROFILE_NAME="${profile_name}" SIGNING_BUCKET="${bucket}" SIGNING_PREFIX="${SIGNING_PREFIX}" .github/scripts/sign-lambda-artifact.sh build/lambda/chatbot.zip chatbot.zip)"
+          echo "chatbot_key=${chatbot_key}" >> "$GITHUB_OUTPUT"
 
       - name: Terraform apply test environment
         working-directory: Infra
@@ -187,7 +193,9 @@ jobs:
             -var="visitor_counter_signed_s3_bucket=${{ steps.signed.outputs.bucket }}" \
             -var="visitor_counter_signed_s3_key=${{ steps.signed.outputs.visitor_key }}" \
             -var="pagerduty_notifier_signed_s3_bucket=${{ steps.signed.outputs.bucket }}" \
-            -var="pagerduty_notifier_signed_s3_key=${{ steps.signed.outputs.pagerduty_key }}"
+            -var="pagerduty_notifier_signed_s3_key=${{ steps.signed.outputs.pagerduty_key }}" \
+            -var="chatbot_signed_s3_bucket=${{ steps.signed.outputs.bucket }}" \
+            -var="chatbot_signed_s3_key=${{ steps.signed.outputs.chatbot_key }}"
 
       - name: Read Terraform outputs
         id: tf_outputs
@@ -274,6 +282,7 @@ jobs:
           mkdir -p build/lambda
           zip -j build/lambda/visitor-counter.zip Backend/lambda_function.py
           zip -j build/lambda/pagerduty-notifier.zip Backend/pagerduty_notifier.py
+          zip -j build/lambda/chatbot.zip Backend/chatbot_function.py Backend/chatbot_knowledge.md
 
       - name: Sign Lambda zip files
         id: signed
@@ -284,9 +293,11 @@ jobs:
           bucket="$(terraform -chdir=Infra output -raw lambda_signing_artifacts_bucket)"
           visitor_key="$(SIGNING_PROFILE_NAME="${profile_name}" SIGNING_BUCKET="${bucket}" SIGNING_PREFIX="${SIGNING_PREFIX}" .github/scripts/sign-lambda-artifact.sh build/lambda/visitor-counter.zip visitor-counter.zip)"
           pagerduty_key="$(SIGNING_PROFILE_NAME="${profile_name}" SIGNING_BUCKET="${bucket}" SIGNING_PREFIX="${SIGNING_PREFIX}" .github/scripts/sign-lambda-artifact.sh build/lambda/pagerduty-notifier.zip pagerduty-notifier.zip)"
+          chatbot_key="$(SIGNING_PROFILE_NAME="${profile_name}" SIGNING_BUCKET="${bucket}" SIGNING_PREFIX="${SIGNING_PREFIX}" .github/scripts/sign-lambda-artifact.sh build/lambda/chatbot.zip chatbot.zip)"
           echo "bucket=${bucket}" >> "$GITHUB_OUTPUT"
           echo "visitor_key=${visitor_key}" >> "$GITHUB_OUTPUT"
           echo "pagerduty_key=${pagerduty_key}" >> "$GITHUB_OUTPUT"
+          echo "chatbot_key=${chatbot_key}" >> "$GITHUB_OUTPUT"
 
       - name: Terraform apply production
         working-directory: Infra
@@ -296,7 +307,9 @@ jobs:
             -var="visitor_counter_signed_s3_bucket=${{ steps.signed.outputs.bucket }}" \
             -var="visitor_counter_signed_s3_key=${{ steps.signed.outputs.visitor_key }}" \
             -var="pagerduty_notifier_signed_s3_bucket=${{ steps.signed.outputs.bucket }}" \
-            -var="pagerduty_notifier_signed_s3_key=${{ steps.signed.outputs.pagerduty_key }}"
+            -var="pagerduty_notifier_signed_s3_key=${{ steps.signed.outputs.pagerduty_key }}" \
+            -var="chatbot_signed_s3_bucket=${{ steps.signed.outputs.bucket }}" \
+            -var="chatbot_signed_s3_key=${{ steps.signed.outputs.chatbot_key }}"
 
       - name: Read Terraform outputs
         id: tf_outputs

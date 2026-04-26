@@ -16,6 +16,7 @@
                 <a href="#about">About</a>
                 <a href="#resume">Resume</a>
                 <a href="#projects">Projects</a>
+                <a href="#chat">Ask AI</a>
                 <a href="#contact">Contact</a>
             </div>
         </nav>
@@ -185,6 +186,35 @@
             </article>
         </section>
 
+        <section id="chat" class="section chat-section">
+            <div class="section-heading">
+                <p class="eyebrow">Ask AI</p>
+                <h2>Ask questions about my background and projects.</h2>
+            </div>
+
+            <div class="chat-panel">
+                <div id="chat-messages" class="chat-messages" aria-live="polite">
+                    <div class="chat-message bot">
+                        Hi, I can answer questions about Michael's resume, cloud projects, DevOps experience, and portfolio architecture.
+                    </div>
+                </div>
+
+                <form id="chat-form" class="chat-form">
+                    <label class="sr-only" for="chat-question">Ask a question</label>
+                    <input
+                        id="chat-question"
+                        name="question"
+                        type="text"
+                        maxlength="500"
+                        placeholder="Ask about my AWS, Terraform, CI/CD, or DevOps experience"
+                        autocomplete="off"
+                        required
+                    />
+                    <button class="button primary" type="submit">Ask</button>
+                </form>
+            </div>
+        </section>
+
         <section id="contact" class="section contact-section">
             <div>
                 <p class="eyebrow">Contact</p>
@@ -218,7 +248,69 @@
             }
         }
 
-        document.addEventListener("DOMContentLoaded", updateVisitorCount);
+        function addChatMessage(message, type) {
+            const messages = document.getElementById("chat-messages");
+            const bubble = document.createElement("div");
+
+            bubble.className = `chat-message $${type}`;
+            bubble.textContent = message;
+            messages.appendChild(bubble);
+            messages.scrollTop = messages.scrollHeight;
+
+            return bubble;
+        }
+
+        async function sendChatQuestion(event) {
+            event.preventDefault();
+
+            const form = event.currentTarget;
+            const input = document.getElementById("chat-question");
+            const button = form.querySelector("button");
+            const question = input.value.trim();
+
+            if (!question) {
+                return;
+            }
+
+            addChatMessage(question, "user");
+            input.value = "";
+            input.disabled = true;
+            button.disabled = true;
+
+            const statusMessage = addChatMessage("Thinking...", "bot status");
+
+            try {
+                const response = await fetch("${api_url}/chat", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ question })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || "Chat request failed");
+                }
+
+                statusMessage.className = "chat-message bot";
+                statusMessage.textContent = data.answer || "I could not answer that right now.";
+            } catch (error) {
+                console.error("Error asking chatbot:", error);
+                statusMessage.className = "chat-message bot error";
+                statusMessage.textContent = "I could not answer right now. Please try again or contact Michael directly.";
+            } finally {
+                input.disabled = false;
+                button.disabled = false;
+                input.focus();
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            updateVisitorCount();
+            document.getElementById("chat-form").addEventListener("submit", sendChatQuestion);
+        });
     </script>
 </body>
 </html>

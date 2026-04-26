@@ -112,7 +112,7 @@ resource "aws_apigatewayv2_api" "visitor_api" {
   protocol_type = "HTTP"
 
   cors_configuration {
-    allow_methods = ["GET", "OPTIONS"]
+    allow_methods = ["GET", "POST", "OPTIONS"]
     allow_headers = ["content-type"]
     allow_origins = ["*"]
     max_age       = 300

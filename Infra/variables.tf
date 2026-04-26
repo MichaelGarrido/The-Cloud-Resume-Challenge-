@@ -103,3 +103,27 @@ variable "lambda_code_signing_policy" {
     error_message = "lambda_code_signing_policy must be Enforce or Warn."
   }
 }
+
+variable "openai_api_key" {
+  description = "OpenAI API key for the portfolio chatbot"
+  type        = string
+  sensitive   = true
+}
+
+variable "openai_model" {
+  description = "OpenAI model used by the portfolio chatbot"
+  type        = string
+  default     = "gpt-5-mini"
+}
+
+variable "chatbot_signed_s3_bucket" {
+  description = "S3 bucket containing the signed chatbot Lambda package"
+  type        = string
+  default     = null
+}
+
+variable "chatbot_signed_s3_key" {
+  description = "S3 key for the signed chatbot Lambda package"
+  type        = string
+  default     = null
+}
