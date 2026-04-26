@@ -115,19 +115,27 @@
             <div class="skills-grid" aria-label="Technical skills">
                 <div>
                     <h3>Cloud & Infrastructure</h3>
-                    <p>AWS, S3, CloudFront, Route 53, API Gateway, Lambda, DynamoDB, ACM, Linux, Terraform</p>
+                    <p>AWS, S3, CloudFront, Route 53, API Gateway, Lambda, DynamoDB, ACM, Linux, Terraform, remote state</p>
                 </div>
                 <div>
                     <h3>CI/CD & Automation</h3>
-                    <p>GitHub Actions, Jenkins, Bamboo, Git, Bitbucket, SVN, Python, Bash</p>
+                    <p>GitHub Actions, Jenkins, Bamboo, Git, signed commits, staged deployments, production approvals, Python, Bash</p>
                 </div>
                 <div>
-                    <h3>Containers & Quality</h3>
-                    <p>Docker, Kubernetes, EKS, Helm, pytest, Cypress, unit testing, end-to-end testing</p>
+                    <h3>Security & Quality</h3>
+                    <p>CodeQL, Syft SBOMs, Grype scanning, AWS Lambda code signing, GPG, pytest, Cypress, unit and end-to-end testing</p>
                 </div>
                 <div>
                     <h3>Monitoring & Reliability</h3>
                     <p>CloudWatch, SNS, PagerDuty, Splunk, Grafana, incident response, log analysis, MTTR reduction</p>
+                </div>
+                <div>
+                    <h3>AI & Backend APIs</h3>
+                    <p>OpenAI Responses API, serverless chatbot Lambda, API Gateway POST endpoints, CORS, knowledge-base fallback responses</p>
+                </div>
+                <div>
+                    <h3>Containers & Platforms</h3>
+                    <p>Docker, Kubernetes, EKS, Helm, containerized workloads, platform delivery workflows</p>
                 </div>
                 <div>
                     <h3>Languages & Collaboration</h3>
@@ -150,13 +158,15 @@
                     </div>
                     <p>
                         A production-style serverless portfolio deployed with AWS S3, CloudFront, Route 53, API Gateway,
-                        Lambda, DynamoDB, ACM, CloudWatch, SNS, PagerDuty, and Terraform remote state.
+                        Lambda, DynamoDB, ACM, CloudWatch, SNS, PagerDuty, Terraform remote state, and an AI assistant
+                        for answering questions about my background and projects.
                     </p>
                     <ul>
                         <li>Built a Python Lambda API with DynamoDB-backed visitor tracking and a JavaScript frontend integration.</li>
-                        <li>Automated infrastructure and site delivery with GitHub Actions, Terraform, CloudFront invalidations, pytest, and Cypress.</li>
-                        <li>Added signed commit enforcement, CodeQL, Syft SBOM generation, Grype vulnerability scanning, and AWS Lambda code signing.</li>
-                        <li>Designed a staged deployment workflow with PR test environments, production approval, and test-environment cleanup.</li>
+                        <li>Added an AI portfolio chatbot using a Python Lambda, API Gateway POST route, OpenAI Responses API, and a curated knowledge base with local fallback answers.</li>
+                        <li>Automated infrastructure and site delivery with GitHub Actions, Terraform, signed Lambda artifacts, CloudFront invalidations, pytest, and Cypress.</li>
+                        <li>Added signed commit enforcement, CodeQL code scanning, Syft SBOM generation, Grype vulnerability scanning, and AWS Lambda code signing.</li>
+                        <li>Designed a staged delivery workflow with PR test environments, production approval gates, and automated test-environment cleanup.</li>
                         <li>Integrated CloudWatch alarms, SNS notifications, and PagerDuty incident routing for operational visibility.</li>
                     </ul>
                     <div class="project-links">
@@ -167,6 +177,23 @@
                 <figure class="architecture">
                     <img src="architecture.svg" alt="Cloud Resume architecture showing GitHub Actions, Terraform, AWS, security scans, monitoring, and the portfolio site." />
                 </figure>
+            </article>
+
+            <article class="project">
+                <div class="project-header">
+                    <h3>Secure Delivery & AI Chatbot Upgrade</h3>
+                    <p>OpenAI, Lambda, CodeQL, SBOM, Grype, AWS Signer, GitHub Actions</p>
+                </div>
+                <p>
+                    Extended the portfolio into a more complete DevOps showcase by adding an AI question-answering assistant,
+                    supply-chain security checks, signed artifacts, and multi-stage deployment controls.
+                </p>
+                <ul>
+                    <li>Created a chatbot Lambda that answers questions from a resume-backed knowledge base and calls OpenAI when quota is available.</li>
+                    <li>Generated SBOMs for backend artifacts with Syft and scanned dependencies with Grype to catch high-severity vulnerabilities.</li>
+                    <li>Protected releases with GPG signed commits, GitHub status checks, AWS Lambda code signing, and manual production approval.</li>
+                    <li>Built PR-based test environments so infrastructure and end-to-end checks can run before production deployment.</li>
+                </ul>
             </article>
 
             <article class="project">
