@@ -30,7 +30,7 @@ job_id="$(
     --output text
 )"
 
-aws signer wait successful --job-id "${job_id}"
+aws signer wait successful-signing-job --job-id "${job_id}"
 
 signed_key="$(
   aws signer describe-signing-job \
