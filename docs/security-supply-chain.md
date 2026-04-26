@@ -53,7 +53,7 @@ flowchart LR
   - `Cypress Test Environment E2E`
 - Enable code scanning merge protection for alerts at severity **High** or higher.
 - Create a `production` GitHub Environment and add required reviewers for manual approval.
-- Add repository variables: `AWS_REGION`, `BUCKET_NAME`, `DOMAIN_NAME`, `ALERT_EMAIL`, `PAGERDUTY_URL`, `TEST_TF_STATE_BUCKET`, `TEST_TF_LOCK_TABLE`, `PROD_TF_STATE_BUCKET`, `PROD_TF_LOCK_TABLE`.
+- Add repository variables: `AWS_REGION`, `BUCKET_NAME`, `DOMAIN_NAME`, `ROUTE53_ZONE_ID`, `ALERT_EMAIL`, `PAGERDUTY_URL`, `TEST_TF_STATE_BUCKET`, `TEST_TF_LOCK_TABLE`, `PROD_TF_STATE_BUCKET`, `PROD_TF_LOCK_TABLE`.
 - Add repository secrets: `TEST_AWS_ROLE_ARN`, `PROD_AWS_ROLE_ARN`, `PAGERDUTY_INTEGRATION_KEY`.
 
 ## Local GPG Commit Signing

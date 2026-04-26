@@ -4,8 +4,11 @@ resource "random_id" "bucket_id" {
 }
 
 locals {
-  env     = var.environment
-  is_prod = var.environment == "prod"
+  env                 = var.environment
+  is_prod             = var.environment == "prod"
+  has_route53_zone_id = length(trimspace(var.route53_zone_id)) > 0
+  signer_env_slug     = substr(replace(var.environment, "/[^A-Za-z0-9]/", ""), 0, 20)
+  signer_name_prefix  = substr("resumelambda${local.signer_env_slug}", 0, 38)
 }
 
 # S3 Bucket
@@ -30,7 +33,8 @@ resource "aws_s3_bucket_public_access_block" "private" {
 # Get Route53 zone
 data "aws_route53_zone" "main" {
   count        = local.is_prod ? 1 : 0
-  name         = var.domain_name
+  name         = local.has_route53_zone_id ? null : var.domain_name
+  zone_id      = local.has_route53_zone_id ? var.route53_zone_id : null
   private_zone = false
 }
 

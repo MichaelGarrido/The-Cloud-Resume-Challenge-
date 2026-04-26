@@ -7,6 +7,11 @@ variable "aws_region" {
 variable "bucket_name" {
   description = "Globally unique S3 bucket name"
   type        = string
+
+  validation {
+    condition     = length(trimspace(var.bucket_name)) > 0
+    error_message = "bucket_name cannot be empty. Set the BUCKET_NAME GitHub Actions variable."
+  }
 }
 
 variable "website_files_path" {
@@ -18,6 +23,12 @@ variable "website_files_path" {
 variable "domain_name" {
   description = "Your root domain name"
   type        = string
+}
+
+variable "route53_zone_id" {
+  description = "Optional Route53 hosted zone ID to use when multiple public zones match domain_name"
+  type        = string
+  default     = ""
 }
 
 variable "alert_email" {

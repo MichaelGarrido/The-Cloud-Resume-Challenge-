@@ -27,6 +27,7 @@ env:
   TF_VAR_aws_region: ${{ vars.AWS_REGION }}
   TF_VAR_bucket_name: ${{ vars.BUCKET_NAME }}
   TF_VAR_domain_name: ${{ vars.DOMAIN_NAME }}
+  TF_VAR_route53_zone_id: ${{ vars.ROUTE53_ZONE_ID }}
   TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
   TF_VAR_pagerduty_integration_key: ${{ secrets.PAGERDUTY_INTEGRATION_KEY }}
   TF_VAR_pagerduty_url: ${{ vars.PAGERDUTY_URL }}

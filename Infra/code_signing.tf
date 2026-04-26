@@ -45,7 +45,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "lambda_signing_artifacts" {
 }
 
 resource "aws_signer_signing_profile" "lambda" {
-  name_prefix = "resume-lambda-${var.environment}-"
+  name_prefix = local.signer_name_prefix
   platform_id = "AWSLambda-SHA384-ECDSA"
 
   signature_validity_period {
