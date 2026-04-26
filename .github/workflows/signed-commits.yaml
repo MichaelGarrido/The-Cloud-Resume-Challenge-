@@ -35,7 +35,7 @@ jobs:
               });
               shas = commits.map((commit) => commit.sha);
             } else {
-              shas = context.payload.commits.map((commit) => commit.id);
+              shas = [context.sha];
             }
 
             const unsigned = [];
