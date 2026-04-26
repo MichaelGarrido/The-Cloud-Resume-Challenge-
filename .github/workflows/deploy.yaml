@@ -150,6 +150,7 @@ jobs:
         working-directory: Infra
         run: |
           terraform apply -auto-approve \
+            -target=data.aws_route53_zone.main \
             -target=aws_s3_bucket.lambda_signing_artifacts \
             -target=aws_s3_bucket_public_access_block.lambda_signing_artifacts \
             -target=aws_s3_bucket_versioning.lambda_signing_artifacts \
@@ -263,6 +264,7 @@ jobs:
         working-directory: Infra
         run: |
           terraform apply -auto-approve \
+            -target=data.aws_route53_zone.main \
             -target=aws_s3_bucket.lambda_signing_artifacts \
             -target=aws_s3_bucket_public_access_block.lambda_signing_artifacts \
             -target=aws_s3_bucket_versioning.lambda_signing_artifacts \
