@@ -208,7 +208,7 @@ jobs:
         run: |
           aws cloudfront create-invalidation \
             --distribution-id "${{ steps.tf_outputs.outputs.distribution_id }}" \
-            --paths "/*"
+            --paths "/index.html" "/error.html" "/styles.css" "/architecture.svg"
 
   e2e-test:
     name: Cypress Test Environment E2E
@@ -322,7 +322,7 @@ jobs:
         run: |
           aws cloudfront create-invalidation \
             --distribution-id "${{ steps.tf_outputs.outputs.distribution_id }}" \
-            --paths "/*"
+            --paths "/index.html" "/error.html" "/styles.css" "/architecture.svg"
 
   production-e2e:
     name: Cypress Production E2E
@@ -348,8 +348,8 @@ jobs:
         run: npx cypress run
 
   cleanup-merged-test:
-    name: Cleanup Merged PR Test Environment
-    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
+    name: Cleanup Closed PR Test Environment
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
 
     steps:

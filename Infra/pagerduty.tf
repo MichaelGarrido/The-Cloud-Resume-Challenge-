@@ -5,7 +5,8 @@ data "archive_file" "pagerduty_notifier_zip" {
 }
 
 resource "aws_iam_role" "pagerduty_notifier_lambda_role" {
-  name = "resume-pagerduty-notifier-role-${var.environment}"
+  count = local.pagerduty_enabled ? 1 : 0
+  name  = "resume-pagerduty-notifier-role-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
@@ -22,13 +23,15 @@ resource "aws_iam_role" "pagerduty_notifier_lambda_role" {
 }
 
 resource "aws_iam_role_policy_attachment" "pagerduty_notifier_basic" {
-  role       = aws_iam_role.pagerduty_notifier_lambda_role.name
+  count      = local.pagerduty_enabled ? 1 : 0
+  role       = aws_iam_role.pagerduty_notifier_lambda_role[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 resource "aws_lambda_function" "pagerduty_notifier" {
+  count         = local.pagerduty_enabled ? 1 : 0
   function_name = "resume-pagerduty-notifier-${var.environment}"
-  role          = aws_iam_role.pagerduty_notifier_lambda_role.arn
+  role          = aws_iam_role.pagerduty_notifier_lambda_role[0].arn
   handler       = "pagerduty_notifier.lambda_handler"
   runtime       = "python3.12"
 
@@ -50,21 +53,24 @@ resource "aws_lambda_function" "pagerduty_notifier" {
 }
 
 resource "aws_cloudwatch_log_group" "pagerduty_notifier" {
-  name              = "/aws/lambda/${aws_lambda_function.pagerduty_notifier.function_name}"
-  retention_in_days = 30
+  count             = local.pagerduty_enabled ? 1 : 0
+  name              = "/aws/lambda/${aws_lambda_function.pagerduty_notifier[0].function_name}"
+  retention_in_days = local.log_retention_days
 }
 
 
 resource "aws_sns_topic_subscription" "pagerduty_lambda" {
-  topic_arn = aws_sns_topic.resume_alerts.arn
+  count     = local.pagerduty_enabled ? 1 : 0
+  topic_arn = aws_sns_topic.resume_alerts[0].arn
   protocol  = "lambda"
-  endpoint  = aws_lambda_function.pagerduty_notifier.arn
+  endpoint  = aws_lambda_function.pagerduty_notifier[0].arn
 }
 
 resource "aws_lambda_permission" "allow_sns_to_invoke_pagerduty_lambda" {
+  count         = local.pagerduty_enabled ? 1 : 0
   statement_id  = "AllowExecutionFromSNSPagerDuty"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.pagerduty_notifier.function_name
+  function_name = aws_lambda_function.pagerduty_notifier[0].function_name
   principal     = "sns.amazonaws.com"
-  source_arn    = aws_sns_topic.resume_alerts.arn
+  source_arn    = aws_sns_topic.resume_alerts[0].arn
 }

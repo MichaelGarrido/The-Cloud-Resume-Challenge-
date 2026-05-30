@@ -9,6 +9,9 @@ locals {
   has_route53_zone_id = length(trimspace(var.route53_zone_id)) > 0
   signer_env_slug     = substr(replace(var.environment, "/[^A-Za-z0-9]/", ""), 0, 20)
   signer_name_prefix  = substr("resumelambda${local.signer_env_slug}", 0, 38)
+  monitoring_enabled  = var.enable_monitoring == null ? local.is_prod : var.enable_monitoring
+  pagerduty_enabled   = local.monitoring_enabled && var.enable_pagerduty
+  log_retention_days  = local.is_prod ? var.prod_log_retention_days : var.nonprod_log_retention_days
 }
 
 # S3 Bucket
@@ -91,6 +94,7 @@ resource "aws_cloudfront_origin_access_control" "oac" {
 resource "aws_cloudfront_distribution" "cdn" {
   enabled             = true
   default_root_object = "index.html"
+  price_class         = "PriceClass_100"
 
   aliases = local.is_prod ? [
     var.domain_name,
@@ -109,6 +113,10 @@ resource "aws_cloudfront_distribution" "cdn" {
 
     allowed_methods = ["GET", "HEAD"]
     cached_methods  = ["GET", "HEAD"]
+    compress        = true
+    min_ttl         = 0
+    default_ttl     = 3600
+    max_ttl         = 86400
 
     forwarded_values {
       query_string = false
@@ -122,14 +130,14 @@ resource "aws_cloudfront_distribution" "cdn" {
     error_code            = 403
     response_code         = 404
     response_page_path    = "/error.html"
-    error_caching_min_ttl = 0
+    error_caching_min_ttl = 60
   }
 
   custom_error_response {
     error_code            = 404
     response_code         = 404
     response_page_path    = "/error.html"
-    error_caching_min_ttl = 0
+    error_caching_min_ttl = 60
   }
 
   restrictions {

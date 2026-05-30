@@ -60,7 +60,7 @@ resource "aws_lambda_function" "chatbot" {
 
 resource "aws_cloudwatch_log_group" "chatbot" {
   name              = "/aws/lambda/${aws_lambda_function.chatbot.function_name}"
-  retention_in_days = 30
+  retention_in_days = local.log_retention_days
 }
 
 resource "aws_apigatewayv2_integration" "chatbot_lambda" {

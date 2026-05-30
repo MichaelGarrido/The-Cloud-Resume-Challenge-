@@ -22,7 +22,7 @@ resource "aws_dynamodb_table" "visitor_counter" {
   }
 
   point_in_time_recovery {
-    enabled = true
+    enabled = var.enable_dynamodb_pitr
   }
 }
 
@@ -51,6 +51,7 @@ resource "aws_iam_role_policy_attachment" "visitor_counter_lambda_basic" {
 }
 
 resource "aws_iam_role_policy_attachment" "visitor_counter_lambda_xray" {
+  count      = var.enable_xray_tracing ? 1 : 0
   role       = aws_iam_role.visitor_counter_lambda_role.name
   policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 }
@@ -90,8 +91,9 @@ resource "aws_lambda_function" "visitor_counter" {
   code_signing_config_arn = aws_lambda_code_signing_config.lambda.arn
   memory_size             = 128
   timeout                 = 5
+
   tracing_config {
-    mode = "Active"
+    mode = var.enable_xray_tracing ? "Active" : "PassThrough"
   }
 
   environment {
@@ -103,7 +105,7 @@ resource "aws_lambda_function" "visitor_counter" {
 
 resource "aws_cloudwatch_log_group" "visitor_counter" {
   name              = "/aws/lambda/${aws_lambda_function.visitor_counter.function_name}"
-  retention_in_days = 30
+  retention_in_days = local.log_retention_days
 }
 
 # HTTP API Gateway
@@ -140,6 +142,12 @@ resource "aws_apigatewayv2_stage" "visitor_default" {
   default_route_settings {
     throttling_burst_limit = 20
     throttling_rate_limit  = 10
+  }
+
+  route_settings {
+    route_key              = aws_apigatewayv2_route.chatbot.route_key
+    throttling_burst_limit = var.chatbot_throttling_burst_limit
+    throttling_rate_limit  = var.chatbot_throttling_rate_limit
   }
 }
 

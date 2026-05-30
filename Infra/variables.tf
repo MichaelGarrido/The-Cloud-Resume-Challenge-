@@ -54,6 +54,54 @@ variable "lambda_invocation_threshold" {
   default     = 100
 }
 
+variable "enable_monitoring" {
+  description = "Whether to create CloudWatch alarms and SNS alerting. Defaults to prod only when unset."
+  type        = bool
+  default     = null
+}
+
+variable "enable_pagerduty" {
+  description = "Whether to route CloudWatch/SNS alerts to PagerDuty."
+  type        = bool
+  default     = false
+}
+
+variable "enable_dynamodb_pitr" {
+  description = "Whether to enable point-in-time recovery for the visitor counter table."
+  type        = bool
+  default     = false
+}
+
+variable "enable_xray_tracing" {
+  description = "Whether to enable active X-Ray tracing for the visitor counter Lambda."
+  type        = bool
+  default     = false
+}
+
+variable "prod_log_retention_days" {
+  description = "CloudWatch log retention for production Lambda log groups."
+  type        = number
+  default     = 30
+}
+
+variable "nonprod_log_retention_days" {
+  description = "CloudWatch log retention for non-production Lambda log groups."
+  type        = number
+  default     = 7
+}
+
+variable "chatbot_throttling_rate_limit" {
+  description = "Steady-state request rate limit for the chatbot route."
+  type        = number
+  default     = 2
+}
+
+variable "chatbot_throttling_burst_limit" {
+  description = "Burst request limit for the chatbot route."
+  type        = number
+  default     = 5
+}
+
 variable "pagerduty_integration_key" {
   type      = string
   sensitive = true
