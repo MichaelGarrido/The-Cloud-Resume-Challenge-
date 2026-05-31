@@ -129,6 +129,12 @@ variable "visitor_counter_signed_s3_key" {
   default     = null
 }
 
+variable "visitor_counter_signed_s3_object_version" {
+  description = "S3 object version for the signed visitor counter Lambda package"
+  type        = string
+  default     = null
+}
+
 variable "pagerduty_notifier_signed_s3_bucket" {
   description = "S3 bucket containing the signed PagerDuty notifier Lambda package"
   type        = string
@@ -137,6 +143,12 @@ variable "pagerduty_notifier_signed_s3_bucket" {
 
 variable "pagerduty_notifier_signed_s3_key" {
   description = "S3 key for the signed PagerDuty notifier Lambda package"
+  type        = string
+  default     = null
+}
+
+variable "pagerduty_notifier_signed_s3_object_version" {
+  description = "S3 object version for the signed PagerDuty notifier Lambda package"
   type        = string
   default     = null
 }
@@ -172,6 +184,12 @@ variable "chatbot_signed_s3_bucket" {
 
 variable "chatbot_signed_s3_key" {
   description = "S3 key for the signed chatbot Lambda package"
+  type        = string
+  default     = null
+}
+
+variable "chatbot_signed_s3_object_version" {
+  description = "S3 object version for the signed chatbot Lambda package"
   type        = string
   default     = null
 }

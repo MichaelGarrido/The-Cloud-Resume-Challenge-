@@ -85,10 +85,11 @@ resource "aws_lambda_function" "visitor_counter" {
   handler       = "lambda_function.lambda_handler"
   runtime       = "python3.12"
 
-  filename         = var.visitor_counter_signed_s3_key == null ? data.archive_file.visitor_counter_zip.output_path : null
-  source_code_hash = var.visitor_counter_signed_s3_key == null ? data.archive_file.visitor_counter_zip.output_base64sha256 : null
-  s3_bucket        = var.visitor_counter_signed_s3_key == null ? null : var.visitor_counter_signed_s3_bucket
-  s3_key           = var.visitor_counter_signed_s3_key
+  filename          = var.visitor_counter_signed_s3_key == null ? data.archive_file.visitor_counter_zip.output_path : null
+  source_code_hash  = var.visitor_counter_signed_s3_key == null ? data.archive_file.visitor_counter_zip.output_base64sha256 : null
+  s3_bucket         = var.visitor_counter_signed_s3_key == null ? null : var.visitor_counter_signed_s3_bucket
+  s3_key            = var.visitor_counter_signed_s3_key
+  s3_object_version = var.visitor_counter_signed_s3_object_version
 
   code_signing_config_arn = aws_lambda_code_signing_config.lambda.arn
   memory_size             = 128

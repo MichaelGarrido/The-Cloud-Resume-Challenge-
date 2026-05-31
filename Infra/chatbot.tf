@@ -43,10 +43,11 @@ resource "aws_lambda_function" "chatbot" {
   handler       = "chatbot_function.lambda_handler"
   runtime       = "python3.12"
 
-  filename         = var.chatbot_signed_s3_key == null ? data.archive_file.chatbot_zip.output_path : null
-  source_code_hash = var.chatbot_signed_s3_key == null ? data.archive_file.chatbot_zip.output_base64sha256 : null
-  s3_bucket        = var.chatbot_signed_s3_key == null ? null : var.chatbot_signed_s3_bucket
-  s3_key           = var.chatbot_signed_s3_key
+  filename          = var.chatbot_signed_s3_key == null ? data.archive_file.chatbot_zip.output_path : null
+  source_code_hash  = var.chatbot_signed_s3_key == null ? data.archive_file.chatbot_zip.output_base64sha256 : null
+  s3_bucket         = var.chatbot_signed_s3_key == null ? null : var.chatbot_signed_s3_bucket
+  s3_key            = var.chatbot_signed_s3_key
+  s3_object_version = var.chatbot_signed_s3_object_version
 
   code_signing_config_arn = aws_lambda_code_signing_config.lambda.arn
   memory_size             = 256

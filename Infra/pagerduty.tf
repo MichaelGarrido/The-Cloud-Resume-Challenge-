@@ -37,10 +37,11 @@ resource "aws_lambda_function" "pagerduty_notifier" {
   handler       = "pagerduty_notifier.lambda_handler"
   runtime       = "python3.12"
 
-  filename         = var.pagerduty_notifier_signed_s3_key == null ? data.archive_file.pagerduty_notifier_zip.output_path : null
-  source_code_hash = var.pagerduty_notifier_signed_s3_key == null ? data.archive_file.pagerduty_notifier_zip.output_base64sha256 : null
-  s3_bucket        = var.pagerduty_notifier_signed_s3_key == null ? null : var.pagerduty_notifier_signed_s3_bucket
-  s3_key           = var.pagerduty_notifier_signed_s3_key
+  filename          = var.pagerduty_notifier_signed_s3_key == null ? data.archive_file.pagerduty_notifier_zip.output_path : null
+  source_code_hash  = var.pagerduty_notifier_signed_s3_key == null ? data.archive_file.pagerduty_notifier_zip.output_base64sha256 : null
+  s3_bucket         = var.pagerduty_notifier_signed_s3_key == null ? null : var.pagerduty_notifier_signed_s3_bucket
+  s3_key            = var.pagerduty_notifier_signed_s3_key
+  s3_object_version = var.pagerduty_notifier_signed_s3_object_version
 
   code_signing_config_arn = aws_lambda_code_signing_config.lambda.arn
   memory_size             = 128

@@ -191,11 +191,17 @@ jobs:
           bucket="$(terraform -chdir=Infra output -raw lambda_signing_artifacts_bucket)"
           visitor_key="$(SIGNING_PROFILE_NAME="${profile_name}" SIGNING_BUCKET="${bucket}" SIGNING_PREFIX="${SIGNING_PREFIX}" .github/scripts/sign-lambda-artifact.sh build/lambda/visitor-counter.zip visitor-counter.zip)"
           pagerduty_key="$(SIGNING_PROFILE_NAME="${profile_name}" SIGNING_BUCKET="${bucket}" SIGNING_PREFIX="${SIGNING_PREFIX}" .github/scripts/sign-lambda-artifact.sh build/lambda/pagerduty-notifier.zip pagerduty-notifier.zip)"
+          visitor_version="$(aws s3api head-object --bucket "${bucket}" --key "${visitor_key}" --query VersionId --output text)"
+          pagerduty_version="$(aws s3api head-object --bucket "${bucket}" --key "${pagerduty_key}" --query VersionId --output text)"
           echo "bucket=${bucket}" >> "$GITHUB_OUTPUT"
           echo "visitor_key=${visitor_key}" >> "$GITHUB_OUTPUT"
+          echo "visitor_version=${visitor_version}" >> "$GITHUB_OUTPUT"
           echo "pagerduty_key=${pagerduty_key}" >> "$GITHUB_OUTPUT"
+          echo "pagerduty_version=${pagerduty_version}" >> "$GITHUB_OUTPUT"
           chatbot_key="$(SIGNING_PROFILE_NAME="${profile_name}" SIGNING_BUCKET="${bucket}" SIGNING_PREFIX="${SIGNING_PREFIX}" .github/scripts/sign-lambda-artifact.sh build/lambda/chatbot.zip chatbot.zip)"
+          chatbot_version="$(aws s3api head-object --bucket "${bucket}" --key "${chatbot_key}" --query VersionId --output text)"
           echo "chatbot_key=${chatbot_key}" >> "$GITHUB_OUTPUT"
+          echo "chatbot_version=${chatbot_version}" >> "$GITHUB_OUTPUT"
 
       - name: Terraform apply test environment
         working-directory: Infra
@@ -204,10 +210,13 @@ jobs:
             -var="environment=pr-${{ github.event.pull_request.number }}" \
             -var="visitor_counter_signed_s3_bucket=${{ steps.signed.outputs.bucket }}" \
             -var="visitor_counter_signed_s3_key=${{ steps.signed.outputs.visitor_key }}" \
+            -var="visitor_counter_signed_s3_object_version=${{ steps.signed.outputs.visitor_version }}" \
             -var="pagerduty_notifier_signed_s3_bucket=${{ steps.signed.outputs.bucket }}" \
             -var="pagerduty_notifier_signed_s3_key=${{ steps.signed.outputs.pagerduty_key }}" \
+            -var="pagerduty_notifier_signed_s3_object_version=${{ steps.signed.outputs.pagerduty_version }}" \
             -var="chatbot_signed_s3_bucket=${{ steps.signed.outputs.bucket }}" \
-            -var="chatbot_signed_s3_key=${{ steps.signed.outputs.chatbot_key }}"
+            -var="chatbot_signed_s3_key=${{ steps.signed.outputs.chatbot_key }}" \
+            -var="chatbot_signed_s3_object_version=${{ steps.signed.outputs.chatbot_version }}"
 
       - name: Read Terraform outputs
         id: tf_outputs
@@ -318,10 +327,16 @@ jobs:
           visitor_key="$(SIGNING_PROFILE_NAME="${profile_name}" SIGNING_BUCKET="${bucket}" SIGNING_PREFIX="${SIGNING_PREFIX}" .github/scripts/sign-lambda-artifact.sh build/lambda/visitor-counter.zip visitor-counter.zip)"
           pagerduty_key="$(SIGNING_PROFILE_NAME="${profile_name}" SIGNING_BUCKET="${bucket}" SIGNING_PREFIX="${SIGNING_PREFIX}" .github/scripts/sign-lambda-artifact.sh build/lambda/pagerduty-notifier.zip pagerduty-notifier.zip)"
           chatbot_key="$(SIGNING_PROFILE_NAME="${profile_name}" SIGNING_BUCKET="${bucket}" SIGNING_PREFIX="${SIGNING_PREFIX}" .github/scripts/sign-lambda-artifact.sh build/lambda/chatbot.zip chatbot.zip)"
+          visitor_version="$(aws s3api head-object --bucket "${bucket}" --key "${visitor_key}" --query VersionId --output text)"
+          pagerduty_version="$(aws s3api head-object --bucket "${bucket}" --key "${pagerduty_key}" --query VersionId --output text)"
+          chatbot_version="$(aws s3api head-object --bucket "${bucket}" --key "${chatbot_key}" --query VersionId --output text)"
           echo "bucket=${bucket}" >> "$GITHUB_OUTPUT"
           echo "visitor_key=${visitor_key}" >> "$GITHUB_OUTPUT"
+          echo "visitor_version=${visitor_version}" >> "$GITHUB_OUTPUT"
           echo "pagerduty_key=${pagerduty_key}" >> "$GITHUB_OUTPUT"
+          echo "pagerduty_version=${pagerduty_version}" >> "$GITHUB_OUTPUT"
           echo "chatbot_key=${chatbot_key}" >> "$GITHUB_OUTPUT"
+          echo "chatbot_version=${chatbot_version}" >> "$GITHUB_OUTPUT"
 
       - name: Terraform apply production
         working-directory: Infra
@@ -330,10 +345,13 @@ jobs:
             -var-file=prod.tfvars \
             -var="visitor_counter_signed_s3_bucket=${{ steps.signed.outputs.bucket }}" \
             -var="visitor_counter_signed_s3_key=${{ steps.signed.outputs.visitor_key }}" \
+            -var="visitor_counter_signed_s3_object_version=${{ steps.signed.outputs.visitor_version }}" \
             -var="pagerduty_notifier_signed_s3_bucket=${{ steps.signed.outputs.bucket }}" \
             -var="pagerduty_notifier_signed_s3_key=${{ steps.signed.outputs.pagerduty_key }}" \
+            -var="pagerduty_notifier_signed_s3_object_version=${{ steps.signed.outputs.pagerduty_version }}" \
             -var="chatbot_signed_s3_bucket=${{ steps.signed.outputs.bucket }}" \
-            -var="chatbot_signed_s3_key=${{ steps.signed.outputs.chatbot_key }}"
+            -var="chatbot_signed_s3_key=${{ steps.signed.outputs.chatbot_key }}" \
+            -var="chatbot_signed_s3_object_version=${{ steps.signed.outputs.chatbot_version }}"
 
       - name: Read Terraform outputs
         id: tf_outputs
