@@ -29,6 +29,8 @@ resource "aws_iam_role_policy_attachment" "pagerduty_notifier_basic" {
 }
 
 resource "aws_lambda_function" "pagerduty_notifier" {
+  depends_on = [aws_lambda_code_signing_config.lambda]
+
   count         = local.pagerduty_enabled ? 1 : 0
   function_name = "resume-pagerduty-notifier-${var.environment}"
   role          = aws_iam_role.pagerduty_notifier_lambda_role[0].arn

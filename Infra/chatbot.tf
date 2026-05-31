@@ -36,6 +36,8 @@ resource "aws_iam_role_policy_attachment" "chatbot_lambda_basic" {
 }
 
 resource "aws_lambda_function" "chatbot" {
+  depends_on = [aws_lambda_code_signing_config.lambda]
+
   function_name = "resume-chatbot-${var.environment}"
   role          = aws_iam_role.chatbot_lambda_role.arn
   handler       = "chatbot_function.lambda_handler"

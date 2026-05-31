@@ -78,6 +78,8 @@ resource "aws_iam_role_policy" "visitor_counter_dynamodb_access" {
 
 # Lambda function
 resource "aws_lambda_function" "visitor_counter" {
+  depends_on = [aws_lambda_code_signing_config.lambda]
+
   function_name = "resume-visitor-counter-${var.environment}"
   role          = aws_iam_role.visitor_counter_lambda_role.arn
   handler       = "lambda_function.lambda_handler"
