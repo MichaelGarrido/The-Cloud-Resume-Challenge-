@@ -161,6 +161,18 @@ jobs:
             -target=aws_s3_bucket_lifecycle_configuration.lambda_signing_artifacts \
             -target=aws_signer_signing_profile.lambda \
             -target=aws_lambda_code_signing_config.lambda \
+            -target=aws_cloudwatch_log_group.pagerduty_notifier \
+            -target=aws_cloudwatch_metric_alarm.lambda_duration \
+            -target=aws_cloudwatch_metric_alarm.lambda_errors \
+            -target=aws_cloudwatch_metric_alarm.lambda_invocations \
+            -target=aws_iam_role.pagerduty_notifier_lambda_role \
+            -target=aws_iam_role_policy_attachment.pagerduty_notifier_basic \
+            -target=aws_iam_role_policy_attachment.visitor_counter_lambda_xray \
+            -target=aws_lambda_function.pagerduty_notifier \
+            -target=aws_lambda_permission.allow_sns_to_invoke_pagerduty_lambda \
+            -target=aws_sns_topic.resume_alerts \
+            -target=aws_sns_topic_subscription.email_alerts \
+            -target=aws_sns_topic_subscription.pagerduty_lambda \
             -var="environment=pr-${{ github.event.pull_request.number }}"
 
       - name: Build Lambda zip files
@@ -275,6 +287,18 @@ jobs:
             -target=aws_s3_bucket_lifecycle_configuration.lambda_signing_artifacts \
             -target=aws_signer_signing_profile.lambda \
             -target=aws_lambda_code_signing_config.lambda \
+            -target=aws_cloudwatch_log_group.pagerduty_notifier \
+            -target=aws_cloudwatch_metric_alarm.lambda_duration \
+            -target=aws_cloudwatch_metric_alarm.lambda_errors \
+            -target=aws_cloudwatch_metric_alarm.lambda_invocations \
+            -target=aws_iam_role.pagerduty_notifier_lambda_role \
+            -target=aws_iam_role_policy_attachment.pagerduty_notifier_basic \
+            -target=aws_iam_role_policy_attachment.visitor_counter_lambda_xray \
+            -target=aws_lambda_function.pagerduty_notifier \
+            -target=aws_lambda_permission.allow_sns_to_invoke_pagerduty_lambda \
+            -target=aws_sns_topic.resume_alerts \
+            -target=aws_sns_topic_subscription.email_alerts \
+            -target=aws_sns_topic_subscription.pagerduty_lambda \
             -var-file=prod.tfvars
 
       - name: Build Lambda zip files
