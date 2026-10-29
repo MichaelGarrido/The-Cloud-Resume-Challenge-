@@ -11,6 +11,9 @@ crash.log
 node_modules/
 npm-debug.log
 
+# Workflow-generated Lambda packages, SBOMs, and scan output
+/build/
+
 
 # Cypress artifacts
 cypress/screenshots/
